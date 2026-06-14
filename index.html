@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bookmarklet Forge</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 760px;
+      margin: 60px auto;
+      padding: 0 20px;
+      line-height: 1.6;
+    }
+
+    .bookmarklet-button {
+      display: inline-block;
+      padding: 12px 16px;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+      margin: 12px 0;
+    }
+
+    code {
+      background: #f3f4f6;
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+
+    pre {
+      background: #f3f4f6;
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Bookmarklet Forge</h1>
+
+  <p>
+    Bookmarklet Forge is a tiny browser tool that opens a sidebar and helps you create reusable bookmarklets for the current webpage.
+  </p>
+
+  <h2>Install</h2>
+
+  <p>
+    Drag this button to your bookmarks bar:
+  </p>
+
+  <p>
+    <a
+      class="bookmarklet-button"
+      href="javascript:(()=>{const s=document.createElement('script');s.src='https://robertsmcginley.github.io/bookmarklet-forge/bookmarklet-forge.js?v='+Date.now();document.body.appendChild(s);})();"
+    >
+      Bookmarklet Forge
+    </a>
+  </p>
+
+  <h2>How to use</h2>
+
+  <ol>
+    <li>Drag the blue <strong>Bookmarklet Forge</strong> button to your bookmarks bar.</li>
+    <li>Go to any webpage.</li>
+    <li>Click the bookmarklet.</li>
+    <li>The Bookmarklet Forge sidebar should open.</li>
+    <li>Choose a template or describe what you want.</li>
+  </ol>
+
+  <h2>Manual bookmarklet URL</h2>
+
+  <p>
+    If dragging does not work, create a new bookmark manually and use this as the URL:
+  </p>
+
+  <pre><code>javascript:(()=>{const s=document.createElement('script');s.src='https://robertsmcginley.github.io/bookmarklet-forge/bookmarklet-forge.js?v='+Date.now();document.body.appendChild(s);})();</code></pre>
+</body>
+</html>
