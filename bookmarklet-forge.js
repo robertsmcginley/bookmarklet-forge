@@ -183,6 +183,65 @@
 
         prompt(`Found ${emails.length} email address${emails.length === 1 ? "" : "es"}. Copy from below:`, emails.join("\n"));
       }
+    },
+
+    headings: {
+      title: "Extract Headings",
+      summary: "Finds all H1 through H6 headings on the current page and displays them as a copyable outline.",
+      fn: function () {
+        const headings = [...document.querySelectorAll("h1, h2, h3, h4, h5, h6")]
+          .map((heading) => {
+            const level = Number(heading.tagName.slice(1));
+            const indent = "  ".repeat(level - 1);
+            const text = heading.textContent.trim().replace(/\s+/g, " ");
+            return text ? `${indent}${heading.tagName}: ${text}` : "";
+          })
+          .filter(Boolean);
+
+        if (!headings.length) {
+          alert("No headings found on this page.");
+          return;
+        }
+
+        prompt(
+          `Found ${headings.length} heading${headings.length === 1 ? "" : "s"}. Copy the outline below:`,
+          headings.join("\n")
+        );
+      }
+    },
+
+    sticky: {
+      title: "Remove Sticky Headers",
+      summary: "Hides fixed and sticky page elements such as sticky headers, floating bars, overlays, and popups.",
+      fn: function () {
+        const candidates = [...document.body.querySelectorAll("*")];
+        let hiddenCount = 0;
+
+        candidates.forEach((element) => {
+          const style = window.getComputedStyle(element);
+          const position = style.position;
+          const rect = element.getBoundingClientRect();
+
+          const isFixedOrSticky = position === "fixed" || position === "sticky";
+          const isVisible = rect.width > 0 && rect.height > 0;
+          const isLikelyOverlay =
+            rect.width >= window.innerWidth * 0.5 ||
+            rect.height >= 40;
+
+          if (isFixedOrSticky && isVisible && isLikelyOverlay) {
+            element.dataset.bfOldDisplay = element.style.display || "";
+            element.style.display = "none";
+            element.dataset.bfStickyHidden = "1";
+            hiddenCount += 1;
+          }
+        });
+
+        alert(
+          hiddenCount
+            ? `Hidden ${hiddenCount} fixed/sticky element${hiddenCount === 1 ? "" : "s"}.`
+            : "No obvious fixed or sticky elements found."
+        );
+      }
     }
   };
 
@@ -246,6 +305,8 @@
     if (text.includes("reading") || text.includes("readability") || text.includes("clean page")) return "reading";
     if (text.includes("image") || text.includes("images") || text.includes("hide pictures")) return "images";
     if (text.includes("email")) return "emails";
+    if (text.includes("heading") || text.includes("outline")) return "headings";
+    if (text.includes("sticky") || text.includes("fixed header") || text.includes("floating")) return "sticky";
 
     return null;
   }
@@ -629,7 +690,9 @@
     ["Highlight prices", "prices"],
     ["Reading mode", "reading"],
     ["Hide images", "images"],
-    ["Extract emails", "emails"]
+    ["Extract emails", "emails"],
+    ["Extract headings", "headings"],
+    ["Remove sticky headers", "sticky"]
   ];
 
   chipTemplates.forEach(([chipText, templateKey]) => {
@@ -655,7 +718,7 @@
     id: "bookmarklet-forge-output",
     textContent:
       "Describe a small webpage action, then click Generate Bookmarklet.\n\n" +
-      "Layer 2A currently supports: extracting links, highlighting prices, reading mode, hiding images, and extracting emails."
+      "Layer 2D currently supports: extracting links, highlighting prices, reading mode, hiding images, extracting emails, extracting headings, and removing sticky headers."
   });
 
   generateButton.addEventListener("click", () => {
@@ -671,7 +734,7 @@
     if (!templateKey) {
       output.textContent =
         `I do not have a built-in template for this yet:\n\n"${request}"\n\n` +
-        "Try one of these for now: extract links, highlight prices, reading mode, hide images, or extract emails.";
+        "Try one of these for now: extract links, highlight prices, reading mode, hide images, extract emails, extract headings, or remove sticky headers.";
       return;
     }
 
