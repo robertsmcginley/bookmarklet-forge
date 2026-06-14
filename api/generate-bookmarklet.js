@@ -4,7 +4,7 @@ const GEMINI_MODEL = "gemini-3.5-flash";
 const OPENAI_MODEL = "gpt-5.5";
 
 function setCorsHeaders(res) {
-  res.setHeader("Access-Control-Allow-Origin", "https://robertsmcginley.github.io");
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }

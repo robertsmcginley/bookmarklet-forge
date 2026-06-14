@@ -1,4 +1,6 @@
 (() => {
+  const AI_ENDPOINT = "https://bookmarklet-forge.vercel.app/api/generate-bookmarklet";
+
   const existing = document.getElementById("bookmarklet-forge-panel");
   const existingStyle = document.getElementById("bookmarklet-forge-style");
 
@@ -275,8 +277,23 @@
     return element;
   }
 
-  function makeBookmarklet(fn) {
+  function makeBookmarkletFromFunction(fn) {
     const rawCode = `(${fn.toString()})();`;
+    const bookmarklet = "javascript:" + encodeURIComponent(rawCode);
+
+    return {
+      rawCode,
+      bookmarklet
+    };
+  }
+
+  function makeBookmarkletFromJavaScript(javascript) {
+    let rawCode = String(javascript || "").trim();
+
+    if (rawCode.toLowerCase().startsWith("javascript:")) {
+      rawCode = rawCode.replace(/^javascript:/i, "").trim();
+    }
+
     const bookmarklet = "javascript:" + encodeURIComponent(rawCode);
 
     return {
@@ -327,29 +344,37 @@
     return null;
   }
 
-  function renderTemplateResult(templateKey, output) {
-    const template = templates[templateKey];
-    const generated = makeBookmarklet(template.fn);
+  function appendGeneratedOutput(options) {
+    const {
+      output,
+      title,
+      summary,
+      rawCode,
+      bookmarklet,
+      providerLabel,
+      runFn,
+      allowRunTest
+    } = options;
 
     clearOutput(output);
 
     const heading = createElement("div", {
       className: "bookmarklet-forge-result-heading",
-      textContent: template.title
+      textContent: title
     });
 
-    const summary = createElement("div", {
+    const provider = createElement("div", {
+      className: "bookmarklet-forge-provider-label",
+      textContent: providerLabel
+    });
+
+    const summaryElement = createElement("div", {
       className: "bookmarklet-forge-result-summary",
-      textContent: template.summary
+      textContent: summary
     });
 
     const buttonRow = createElement("div", {
       className: "bookmarklet-forge-button-row"
-    });
-
-    const runButton = createElement("button", {
-      className: "bookmarklet-forge-small-button",
-      textContent: "Run Test"
     });
 
     const copyJsButton = createElement("button", {
@@ -367,7 +392,24 @@
       textContent: ""
     });
 
-    buttonRow.appendChild(runButton);
+    if (allowRunTest && runFn) {
+      const runButton = createElement("button", {
+        className: "bookmarklet-forge-small-button",
+        textContent: "Run Test"
+      });
+
+      runButton.addEventListener("click", () => {
+        try {
+          runFn();
+          status.textContent = "Test ran.";
+        } catch (error) {
+          status.textContent = `Test failed: ${error.message}`;
+        }
+      });
+
+      buttonRow.appendChild(runButton);
+    }
+
     buttonRow.appendChild(copyJsButton);
     buttonRow.appendChild(copyBookmarkletButton);
 
@@ -378,10 +420,10 @@
 
     const bookmarkLink = createElement("a", {
       className: "bookmarklet-forge-bookmark-link",
-      textContent: template.title
+      textContent: title
     });
 
-    bookmarkLink.href = generated.bookmarklet;
+    bookmarkLink.href = bookmarklet;
     bookmarkLink.draggable = true;
 
     const jsLabel = createElement("div", {
@@ -394,7 +436,7 @@
       readOnly: true
     });
 
-    jsCode.value = generated.rawCode;
+    jsCode.value = rawCode;
 
     const bookmarkletLabel = createElement("div", {
       className: "bookmarklet-forge-code-label",
@@ -406,27 +448,19 @@
       readOnly: true
     });
 
-    bookmarkletCode.value = generated.bookmarklet;
-
-    runButton.addEventListener("click", () => {
-      try {
-        template.fn();
-        status.textContent = "Test ran.";
-      } catch (error) {
-        status.textContent = `Test failed: ${error.message}`;
-      }
-    });
+    bookmarkletCode.value = bookmarklet;
 
     copyJsButton.addEventListener("click", () => {
-      copyText(generated.rawCode, status);
+      copyText(rawCode, status);
     });
 
     copyBookmarkletButton.addEventListener("click", () => {
-      copyText(generated.bookmarklet, status);
+      copyText(bookmarklet, status);
     });
 
     output.appendChild(heading);
-    output.appendChild(summary);
+    output.appendChild(provider);
+    output.appendChild(summaryElement);
     output.appendChild(buttonRow);
     output.appendChild(status);
     output.appendChild(bookmarkLabel);
@@ -435,6 +469,101 @@
     output.appendChild(jsCode);
     output.appendChild(bookmarkletLabel);
     output.appendChild(bookmarkletCode);
+
+    if (!allowRunTest) {
+      const note = createElement("div", {
+        className: "bookmarklet-forge-ai-note",
+        textContent: "AI-generated bookmarklets are shown for review first. Run Test will be added after the safety review layer."
+      });
+
+      output.appendChild(note);
+    }
+  }
+
+  function renderTemplateResult(templateKey, output) {
+    const template = templates[templateKey];
+    const generated = makeBookmarkletFromFunction(template.fn);
+
+    appendGeneratedOutput({
+      output,
+      title: template.title,
+      summary: template.summary,
+      rawCode: generated.rawCode,
+      bookmarklet: generated.bookmarklet,
+      providerLabel: "Built-in template",
+      runFn: template.fn,
+      allowRunTest: true
+    });
+  }
+
+  function renderAiResult(data, output) {
+    const generated = makeBookmarkletFromJavaScript(data.javascript);
+
+    appendGeneratedOutput({
+      output,
+      title: data.title || "AI Bookmarklet",
+      summary: data.summary || "AI-generated bookmarklet.",
+      rawCode: generated.rawCode,
+      bookmarklet: generated.bookmarklet,
+      providerLabel: `AI generated with ${data.provider || "backend"}`,
+      runFn: null,
+      allowRunTest: false
+    });
+  }
+
+  async function generateAiBookmarklet(request, output) {
+    clearOutput(output);
+
+    const loading = createElement("div", {
+      className: "bookmarklet-forge-loading",
+      textContent: "No built-in template matched. Calling AI backend..."
+    });
+
+    output.appendChild(loading);
+
+    try {
+      const response = await fetch(AI_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          request,
+          provider: "gemini"
+        })
+      });
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error("Backend did not return JSON.");
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || `Request failed with status ${response.status}.`);
+      }
+
+      renderAiResult(data, output);
+    } catch (error) {
+      clearOutput(output);
+
+      const heading = createElement("div", {
+        className: "bookmarklet-forge-result-heading",
+        textContent: "AI Generation Failed"
+      });
+
+      const message = createElement("div", {
+        className: "bookmarklet-forge-error",
+        textContent:
+          `${error.message}\n\n` +
+          "Built-in templates still work. If this happened on a normal webpage, check that the backend CORS setting allows requests from any origin."
+      });
+
+      output.appendChild(heading);
+      output.appendChild(message);
+    }
   }
 
   const style = document.createElement("style");
@@ -572,7 +701,19 @@
       font-size: 16px;
       font-weight: bold;
       color: #ffffff;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
+    }
+
+    .bookmarklet-forge-provider-label {
+      display: inline-block;
+      color: #93c5fd;
+      background: #172554;
+      border: 1px solid #1d4ed8;
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 11px;
+      margin-bottom: 10px;
+      white-space: normal;
     }
 
     .bookmarklet-forge-result-summary {
@@ -646,6 +787,23 @@
     .bookmarklet-forge-bookmark-link:hover {
       background: #1d4ed8;
     }
+
+    .bookmarklet-forge-loading {
+      color: #93c5fd;
+      white-space: normal;
+    }
+
+    .bookmarklet-forge-error {
+      color: #fecaca;
+      white-space: pre-wrap;
+    }
+
+    .bookmarklet-forge-ai-note {
+      margin-top: 10px;
+      color: #fbbf24;
+      font-size: 12px;
+      white-space: normal;
+    }
   `;
 
   document.head.appendChild(style);
@@ -694,7 +852,7 @@
 
   const textarea = createElement("textarea", {
     id: "bookmarklet-forge-input",
-    placeholder: "Example: Make a bookmarklet that highlights all prices on this page."
+    placeholder: "Example: Make a bookmarklet that counts all buttons on this page."
   });
 
   const chipRow = createElement("div", {
@@ -734,10 +892,10 @@
     id: "bookmarklet-forge-output",
     textContent:
       "Describe a small webpage action, then click Generate Bookmarklet.\n\n" +
-      "Layer 2E currently supports: extracting links, highlighting prices, reading mode, hiding images, extracting emails, extracting headings, and toggling sticky headers."
+      "Built-in templates run instantly. If no template matches, Bookmarklet Forge will call the AI backend."
   });
 
-  generateButton.addEventListener("click", () => {
+  generateButton.addEventListener("click", async () => {
     const request = textarea.value.trim();
 
     if (!request) {
@@ -747,14 +905,12 @@
 
     const templateKey = chooseTemplate(request);
 
-    if (!templateKey) {
-      output.textContent =
-        `I do not have a built-in template for this yet:\n\n"${request}"\n\n` +
-        "Try one of these for now: extract links, highlight prices, reading mode, hide images, extract emails, extract headings, or toggle sticky headers.";
+    if (templateKey) {
+      renderTemplateResult(templateKey, output);
       return;
     }
 
-    renderTemplateResult(templateKey, output);
+    await generateAiBookmarklet(request, output);
   });
 
   closeButton.addEventListener("click", () => {
