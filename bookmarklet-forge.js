@@ -211,9 +211,22 @@
     },
 
     sticky: {
-      title: "Remove Sticky Headers",
-      summary: "Hides fixed and sticky page elements such as sticky headers, floating bars, overlays, and popups.",
+      title: "Toggle Sticky Headers",
+      summary: "Toggles fixed and sticky page elements such as sticky headers, floating bars, overlays, and popups.",
       fn: function () {
+        const alreadyHidden = document.querySelectorAll("[data-bf-sticky-hidden='1']");
+
+        if (alreadyHidden.length) {
+          alreadyHidden.forEach((element) => {
+            element.style.display = element.dataset.bfOldDisplay || "";
+            delete element.dataset.bfOldDisplay;
+            delete element.dataset.bfStickyHidden;
+          });
+
+          alert(`Restored ${alreadyHidden.length} sticky/fixed element${alreadyHidden.length === 1 ? "" : "s"}.`);
+          return;
+        }
+
         const candidates = [...document.body.querySelectorAll("*")];
         let hiddenCount = 0;
 
@@ -224,11 +237,14 @@
 
           const isFixedOrSticky = position === "fixed" || position === "sticky";
           const isVisible = rect.width > 0 && rect.height > 0;
+
           const isLikelyOverlay =
             rect.width >= window.innerWidth * 0.5 ||
             rect.height >= 40;
 
-          if (isFixedOrSticky && isVisible && isLikelyOverlay) {
+          const isNotForgePanel = !element.closest("#bookmarklet-forge-panel");
+
+          if (isFixedOrSticky && isVisible && isLikelyOverlay && isNotForgePanel) {
             element.dataset.bfOldDisplay = element.style.display || "";
             element.style.display = "none";
             element.dataset.bfStickyHidden = "1";
@@ -238,7 +254,7 @@
 
         alert(
           hiddenCount
-            ? `Hidden ${hiddenCount} fixed/sticky element${hiddenCount === 1 ? "" : "s"}.`
+            ? `Hidden ${hiddenCount} fixed/sticky element${hiddenCount === 1 ? "" : "s"}. Run again to restore.`
             : "No obvious fixed or sticky elements found."
         );
       }
@@ -692,7 +708,7 @@
     ["Hide images", "images"],
     ["Extract emails", "emails"],
     ["Extract headings", "headings"],
-    ["Remove sticky headers", "sticky"]
+    ["Toggle sticky headers", "sticky"]
   ];
 
   chipTemplates.forEach(([chipText, templateKey]) => {
@@ -718,7 +734,7 @@
     id: "bookmarklet-forge-output",
     textContent:
       "Describe a small webpage action, then click Generate Bookmarklet.\n\n" +
-      "Layer 2D currently supports: extracting links, highlighting prices, reading mode, hiding images, extracting emails, extracting headings, and removing sticky headers."
+      "Layer 2E currently supports: extracting links, highlighting prices, reading mode, hiding images, extracting emails, extracting headings, and toggling sticky headers."
   });
 
   generateButton.addEventListener("click", () => {
@@ -734,7 +750,7 @@
     if (!templateKey) {
       output.textContent =
         `I do not have a built-in template for this yet:\n\n"${request}"\n\n` +
-        "Try one of these for now: extract links, highlight prices, reading mode, hide images, extract emails, extract headings, or remove sticky headers.";
+        "Try one of these for now: extract links, highlight prices, reading mode, hide images, extract emails, extract headings, or toggle sticky headers.";
       return;
     }
 
